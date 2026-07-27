@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Flux — Smart To-Do & Productivity</title>
+<meta name="description" content="A premium glassmorphism task manager." />
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<!-- Tailwind (utility classes) -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Lucide icons -->
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="app-bg">
+
+  <!-- Ambient background blobs -->
+  <div class="blob blob-1" aria-hidden="true"></div>
+  <div class="blob blob-2" aria-hidden="true"></div>
+  <div class="blob blob-3" aria-hidden="true"></div>
+
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- ============================= TOP BAR ============================= -->
+  <header class="topbar glass">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark"><i data-lucide="sparkles"></i></div>
+        <span>Flux</span>
+      </div>
+
+      <div class="search-wrap">
+        <i data-lucide="search" class="search-icon"></i>
+        <input id="searchInput" type="search" class="search-input" placeholder="Search tasks, tags, categories…" aria-label="Search tasks" />
+        <button id="clearSearchBtn" class="search-clear" aria-label="Clear search" hidden><i data-lucide="x"></i></button>
+      </div>
+
+      <div class="topbar-actions">
+        <button id="themeToggle" class="icon-btn" aria-label="Toggle dark/light theme" title="Toggle theme">
+          <i data-lucide="moon" id="themeIconMoon"></i>
+          <i data-lucide="sun" id="themeIconSun" hidden></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- ============================= SIDEBAR / NAV ============================= -->
+    <nav class="sidebar glass" aria-label="Task views">
+      <ul class="nav-list" id="navList">
+        <li><button class="nav-item is-active" data-view="all"><i data-lucide="layout-grid"></i><span>All Tasks</span></button></li>
+        <li><button class="nav-item" data-view="today"><i data-lucide="calendar-days"></i><span>Today</span></button></li>
+        <li><button class="nav-item" data-view="upcoming"><i data-lucide="calendar-clock"></i><span>Upcoming</span></button></li>
+        <li><button class="nav-item" data-view="pending"><i data-lucide="circle-dashed"></i><span>Pending</span></button></li>
+        <li><button class="nav-item" data-view="completed"><i data-lucide="check-circle-2"></i><span>Completed</span></button></li>
+        <li><button class="nav-item" data-view="overdue"><i data-lucide="alarm-clock"></i><span>Overdue</span></button></li>
+        <li><button class="nav-item" data-view="important"><i data-lucide="star"></i><span>Important</span></button></li>
+        <li><button class="nav-item" data-view="pinned"><i data-lucide="pin"></i><span>Pinned</span></button></li>
+      </ul>
+    </nav>
+
+    <main class="content">
+      <!-- ============================= DASHBOARD ============================= -->
+      <section class="dashboard" aria-label="Productivity summary">
+        <div class="stat-card glass">
+          <div class="stat-icon stat-icon-blue"><i data-lucide="list-todo"></i></div>
+          <div><p class="stat-value" id="statTotal">0</p><p class="stat-label">Total Tasks</p></div>
+        </div>
+        <div class="stat-card glass">
+          <div class="stat-icon stat-icon-green"><i data-lucide="check-check"></i></div>
+          <div><p class="stat-value" id="statCompleted">0</p><p class="stat-label">Completed</p></div>
+        </div>
+        <div class="stat-card glass">
+          <div class="stat-icon stat-icon-amber"><i data-lucide="hourglass"></i></div>
+          <div><p class="stat-value" id="statPending">0</p><p class="stat-label">Pending</p></div>
+        </div>
+        <div class="stat-card glass">
+          <div class="stat-icon stat-icon-purple"><i data-lucide="calendar-check-2"></i></div>
+          <div><p class="stat-value" id="statDueToday">0</p><p class="stat-label">Due Today</p></div>
+        </div>
+        <div class="stat-card glass">
+          <div class="stat-icon stat-icon-red"><i data-lucide="alarm-clock-off"></i></div>
+          <div><p class="stat-value" id="statOverdue">0</p><p class="stat-label">Overdue</p></div>
+        </div>
+        <div class="stat-card glass">
+          <div class="stat-icon stat-icon-pink"><i data-lucide="flame"></i></div>
+          <div><p class="stat-value" id="statHighPriority">0</p><p class="stat-label">High / Urgent</p></div>
+        </div>
+      </section>
+
+      <section class="progress-panel glass" aria-label="Overall progress">
+        <div class="progress-text">
+          <span id="progressLabel">0 / 0 tasks completed</span>
+          <span id="progressPercent" class="progress-percent">0%</span>
+        </div>
+        <div class="progress-track"><div id="progressFill" class="progress-fill" style="width:0%"></div></div>
+      </section>
+
+      <!-- ============================= FILTER / SORT BAR ============================= -->
+      <section class="controls-bar" aria-label="Filters and sorting">
+        <div class="chip-row" id="filterChips">
+          <button class="chip" data-filter-priority="">All Priorities</button>
+          <button class="chip" data-filter-priority="Urgent">Urgent</button>
+          <button class="chip" data-filter-priority="High">High</button>
+          <button class="chip" data-filter-priority="Medium">Medium</button>
+          <button class="chip" data-filter-priority="Low">Low</button>
+        </div>
+
+        <div class="controls-right">
+          <select id="categoryFilter" class="select-field" aria-label="Filter by category">
+            <option value="">All Categories</option>
+          </select>
+
+          <select id="sortSelect" class="select-field" aria-label="Sort tasks">
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="due_date">Due Date</option>
+            <option value="priority">Priority</option>
+            <option value="alphabetical">Alphabetical</option>
+            <option value="updated">Recently Updated</option>
+          </select>
+
+          <button id="clearFiltersBtn" class="ghost-btn"><i data-lucide="filter-x"></i><span>Clear</span></button>
+        </div>
+      </section>
+
+      <!-- ============================= TASK LIST ============================= -->
+      <section aria-label="Task list">
+        <div id="loadingState" class="loading-grid" hidden>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+        </div>
+
+        <div id="emptyState" class="empty-state glass" hidden>
+          <i data-lucide="sparkles" class="empty-icon"></i>
+          <p id="emptyTitle">No tasks yet</p>
+          <p id="emptySubtitle" class="empty-subtitle">Create your first task to get started.</p>
+        </div>
+
+        <ul id="taskList" class="task-list" role="list"></ul>
+      </section>
+    </main>
+  </div>
+
+  <!-- ============================= FLOATING ADD BUTTON ============================= -->
+  <button id="fabAddTask" class="fab" aria-label="Add new task"><i data-lucide="plus"></i></button>
+
+  <!-- ============================= ADD / EDIT TASK MODAL ============================= -->
+  <div id="taskModalOverlay" class="modal-overlay" hidden>
+    <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle">
+      <div class="modal-header">
+        <h2 id="taskModalTitle">New Task</h2>
+        <button class="icon-btn" id="closeTaskModal" aria-label="Close"><i data-lucide="x"></i></button>
+      </div>
+
+      <form id="taskForm" class="modal-body" novalidate>
+        <input type="hidden" id="taskId" />
+
+        <div class="field">
+          <label for="taskTitle">Title <span class="req">*</span></label>
+          <input id="taskTitle" type="text" maxlength="150" placeholder="e.g. Finish portfolio website" autocomplete="off" />
+          <p class="field-error" id="titleError" hidden>Please enter a task title.</p>
+        </div>
+
+        <div class="field">
+          <label for="taskDescription">Description</label>
+          <textarea id="taskDescription" rows="3" maxlength="1000" placeholder="Add more detail (optional)"></textarea>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="taskCategory">Category</label>
+            <select id="taskCategory">
+              <option>Personal</option>
+              <option>Study</option>
+              <option>Work</option>
+              <option>Coding</option>
+              <option>Health</option>
+              <option>Shopping</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="taskPriority">Priority</label>
+            <select id="taskPriority">
+              <option>Low</option>
+              <option selected>Medium</option>
+              <option>High</option>
+              <option>Urgent</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="taskDueDate">Due date</label>
+            <input id="taskDueDate" type="date" />
+          </div>
+          <div class="field">
+            <label for="taskDueTime">Due time</label>
+            <input id="taskDueTime" type="time" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="taskTags">Tags <span class="hint">(comma separated)</span></label>
+          <input id="taskTags" type="text" placeholder="e.g. urgent, client, review" autocomplete="off" />
+        </div>
+
+        <div class="field">
+          <label>Subtasks</label>
+          <div id="subtaskEditList" class="subtask-edit-list"></div>
+          <div class="subtask-add-row">
+            <input id="newSubtaskInput" type="text" placeholder="Add a subtask and press Enter" autocomplete="off" />
+            <button type="button" id="addSubtaskBtn" class="ghost-btn small"><i data-lucide="plus"></i></button>
+          </div>
+        </div>
+
+        <div class="toggle-row">
+          <label class="switch-label">
+            <input type="checkbox" id="taskImportant" />
+            <span class="switch"></span> Important
+          </label>
+          <label class="switch-label">
+            <input type="checkbox" id="taskPinned" />
+            <span class="switch"></span> Pinned
+          </label>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="ghost-btn" id="cancelTaskModal">Cancel</button>
+          <button type="submit" class="primary-btn" id="saveTaskBtn">Save Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================= DELETE CONFIRM MODAL ============================= -->
+  <div id="deleteModalOverlay" class="modal-overlay" hidden>
+    <div class="modal glass modal-small" role="alertdialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+      <div class="modal-body center">
+        <i data-lucide="trash-2" class="delete-icon"></i>
+        <h2 id="deleteModalTitle">Delete this task?</h2>
+        <p class="modal-subtext">This action cannot be undone.</p>
+        <div class="modal-footer center">
+          <button class="ghost-btn" id="cancelDeleteBtn">Cancel</button>
+          <button class="danger-btn" id="confirmDeleteBtn">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/database.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
